@@ -1,0 +1,7 @@
+# binary file
+bilidd
+.exe
+
+# danmaku data file
+*.xml
+*.json
