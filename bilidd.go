@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/flate"
 	"encoding/json"
+	"encoding/xml"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -86,6 +87,11 @@ func main() {
 	defer resp.Body.Close()
 	fr := flate.NewReader(resp.Body)
 	data, _ := ioutil.ReadAll(fr)
+	if parseBiu {
+		if data, err = convertToBiuFormat(data); err != nil {
+			exitWithErr("转换格式时发生错误: " + err.Error())
+		}
+	}
 	if outFile != "" {
 		f, err := os.Create(outFile)
 		if err != nil {
@@ -132,4 +138,70 @@ func parseDuration(dur int) string {
 	second := dur % 60
 	minute := dur / 60
 	return fmt.Sprintf("%02d:%02d", minute, second)
+}
+
+func convertToBiuFormat(data []byte) (jsonData []byte, err error) {
+	type xmlDanmaku struct {
+		D []struct {
+			P    string `xml:"p,attr"`
+			Text string `xml:",chardata"`
+		} `xml:"d"`
+	}
+	type biuDanmaku struct {
+		Time  int    `json:"time"`
+		Type  int    `json:"type"`
+		Text  string `json:"text"`
+		Style struct {
+			Color string `json:"color"`
+		} `json:"style"`
+	}
+	xmlData := new(xmlDanmaku)
+	if err = xml.Unmarshal(data, xmlData); err != nil {
+		return nil, err
+	}
+	biuData := make([]biuDanmaku, len(xmlData.D))
+	for i := 0; i < len(biuData); i++ {
+		p := strings.Split(xmlData.D[i].P, ",")
+		timeStr := strings.Replace(p[0], ".", "", -1)
+		if biuData[i].Time, err = strconv.Atoi(timeStr[:len(timeStr)-2]); err != nil {
+			return nil, err
+		}
+		if p[1] == "1" || p[1] == "2" || p[1] == "3" {
+			biuData[i].Type = 1
+		} else if p[1] == "5" {
+			biuData[i].Type = 2
+		} else if p[1] == "4" {
+			biuData[i].Type = 3
+		}
+		biuData[i].Text = xmlData.D[i].Text
+		if biuData[i].Style.Color, err = dec2hex(p[3]); err != nil {
+			return nil, err
+		}
+		biuData[i].Style.Color = "#" + biuData[i].Style.Color
+	}
+	return json.Marshal(biuData)
+}
+
+func dec2hex(dec string) (hex string, err error) {
+	var n int
+	hexArr := make([]rune, 0, 10)
+	if n, err = strconv.Atoi(dec); err != nil {
+		return
+	}
+	for {
+		r := n % 16
+		if r < 10 {
+			hexArr = append(hexArr, rune('0'+r))
+		} else {
+			hexArr = append(hexArr, rune(r-10+'A'))
+		}
+		if n /= 16; n == 0 {
+			break
+		}
+	}
+	for i, j := 0, len(hexArr)-1; i < j; i, j = i+1, j-1 {
+		hexArr[i], hexArr[j] = hexArr[j], hexArr[i]
+	}
+	hex = string(hexArr)
+	return
 }
