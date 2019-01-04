@@ -174,10 +174,11 @@ func convertToBiuFormat(data []byte) (jsonData []byte, err error) {
 			biuData[i].Type = 3
 		}
 		biuData[i].Text = xmlData.D[i].Text
-		if biuData[i].Style.Color, err = dec2hex(p[3]); err != nil {
+		if color, err := dec2hex(p[3]); err == nil {
+			biuData[i].Style.Color = parseHexColor(color)
+		} else {
 			return nil, err
 		}
-		biuData[i].Style.Color = "#" + biuData[i].Style.Color
 	}
 	return json.Marshal(biuData)
 }
@@ -204,4 +205,14 @@ func dec2hex(dec string) (hex string, err error) {
 	}
 	hex = string(hexArr)
 	return
+}
+
+func parseHexColor(hex string) string {
+	var buf bytes.Buffer
+	buf.WriteRune('#')
+	for i := len(hex); i < 6; i++ {
+		buf.WriteRune('0')
+	}
+	buf.WriteString(hex)
+	return buf.String()
 }
