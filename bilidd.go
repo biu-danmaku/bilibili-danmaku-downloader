@@ -122,10 +122,12 @@ func getView(aid string) (view view, err error) {
 }
 
 func httpGet(url string) (resp *http.Response, err error) {
-	client := &http.Client{}
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("User-Agent", "Chrome/23.3.3333.333")
-	resp, err = client.Do(req)
+	var client http.Client
+	var req *http.Request
+	if req, err = http.NewRequest("GET", url, nil); err == nil {
+		req.Header.Set("User-Agent", "Chrome/23.3.3333.333")
+		resp, err = client.Do(req)
+	}
 	return
 }
 
